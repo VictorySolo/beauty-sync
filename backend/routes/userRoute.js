@@ -9,18 +9,18 @@ const {
 const {
     login,
     decodeToken,
-    logout } = require('../services/authentication.js')
+} = require('../services/authentication.js')
 const upload = require('../services/multer.js');
-const userRouter = express.Router();
+const userRoutes = express.Router();
 
-userRouter.post("/register", registerUser);
-userRouter.post("/login", login)
-userRouter.post("/", decodeToken, logout)
+userRoutes.post("/register", registerUser);
+userRoutes.post("/login", login)
+// userRoutes.post("/", decodeToken, logout)
 
-userRouter.get("/get-profile", decodeToken, getUserProfile)
-userRouter.post("/update-profile", upload.single('image'), decodeToken, updateUserProfile)
-userRouter.post("/book-appointment", decodeToken, bookAppointment)
-userRouter.get("/appointments", decodeToken, listAppointment)
-userRouter.post("/cancel-appointment", decodeToken, cancelAppointment)
+userRoutes.get("/get_profile", decodeToken, getUserProfile)
+userRoutes.post("/update_profile", upload.single('image'), decodeToken, updateUserProfile)
+userRoutes.post("/book_appointment", decodeToken, bookAppointment)
+userRoutes.get("/appointments", decodeToken, listAppointment)
+userRoutes.post("/cancel_appointment", decodeToken, cancelAppointment)
 
-module.exports = userRouter;
+module.exports = userRoutes;
