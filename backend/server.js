@@ -1,14 +1,13 @@
+require('dotenv').config({ path: './config/.env' });
 const express = require('express');
 const cors = require('cors');
-require('dotenv').config();
 const cookieParser = require('cookie-parser');
 const helmet = require('helmet');
 const session = require('express-session');
-const adminRouter = require('./routes/adminRoute.js');
-const userRouter = require('./routes/userRoute.js');
-const specialistRouter = require('./routes/specialistRoute.js');
+const adminRoutes = require('./routes/adminRoute.js');
+const userRoutes = require('./routes/userRoute.js');
+const specialistRoutes = require('./routes/specialistRoute.js');
 const connectCloudinary = require('./config/cloudinary.js')
-
 
 // app config
 const app = express()
@@ -24,10 +23,10 @@ app.use(cors({
     credentials: true,
 })
 )
-app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
+app.use(cors());
 app.use(helmet())
 app.use(session({
-        secret: process.env.SESSION_SECRET || "defaultSecret", // Change this to a secure secret
+        secret: process.env.SESSION_SECRET, 
         resave: false,
         saveUninitialized: false, // Ensure session is not saved until modified
         cookie: {
@@ -39,9 +38,9 @@ app.use(session({
 )
 
 // api endpoint
-app.use('/api/user', userRouter)
-app.use('/api/admin', adminRouter)
-app.use('/api/specialist', specialistRouter)
+app.use('/api/user', userRoutes)
+app.use('/api/admin', adminRoutes)
+app.use('/api/specialists', specialistRoutes)
 //http://localhost:3000/api/admin/add-specialist
 
 
