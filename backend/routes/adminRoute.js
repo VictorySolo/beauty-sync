@@ -11,16 +11,16 @@ const {
     logout } = require('../services/authentication.js')
 const { changeAvailablity } = require('../controllers/specialistController.js');
 const upload = require('../services/multer.js');
-const adminRouter = express.Router();
+const adminRoutes = express.Router();
 
-adminRouter.post("/login", login)
-adminRouter.post("/", decodeToken, logout)
+adminRoutes.post("/login", login)
+adminRoutes.post("/", decodeToken, logout)
 
-adminRouter.post("/add-specialist",decodeToken, upload.single('image'), addSpecialist)
-adminRouter.get("/appointments", decodeToken, appointmentsAdmin)
-adminRouter.post("/cancel-appointment", decodeToken, appointmentCancel)
-adminRouter.get("/all-specialists", decodeToken, allSpecialists)
-adminRouter.post("/change-availability", decodeToken, changeAvailablity)
-adminRouter.get("/dashboard", decodeToken, adminDashboard)
+adminRoutes.post("/add_specialist",decodeToken, upload.single('image'), addSpecialist)
+adminRoutes.get("/appointments", decodeToken, appointmentsAdmin)
+adminRoutes.post("/cancel_appointment", decodeToken, appointmentCancel)
+adminRoutes.get("/all_specialists", decodeToken, allSpecialists)
+adminRoutes.post("/change_availability", decodeToken, changeAvailablity)
+adminRoutes.get("/dashboard", decodeToken, adminDashboard)
 
-module.exports = adminRouter;
+module.exports = adminRoutes;
