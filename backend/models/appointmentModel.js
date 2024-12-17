@@ -4,7 +4,7 @@ const { Schema } = mongoose
 
 const appointmentSchema = new Schema({
     userId: { type: String, required: true },
-    specialistId: { type: String, required: true },
+    specId: { type: String, required: true },
     slotDate: { type: String, required: true },
     slotTime: { type: String, required: true },
     userData: {
@@ -17,7 +17,7 @@ const appointmentSchema = new Schema({
     },
     amount: {
         type: Number,
-        equired: true,
+        required: true,
         min: [0, 'Amount must be a positive value'],
     },
     date: { type: Number, required: true },

@@ -2,12 +2,6 @@ const mongoose = require('mongoose')
 const { Schema } = mongoose
 
 
-const addressSchema = new Schema({
-    city: { type: String, default: '' },
-    street: { type: String, default: '' },
-    building: { type: String, default: '' },
-});
-
 // define regex validation pattern for email and phone
 const validationPatterns = {
     email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, // Basic email format
@@ -41,8 +35,7 @@ const userSchema = new Schema(
         },
         image: {
             type: String,
-            default:"image",
-            trim: true,
+            default:"Upload image",
         },
         address: {
             type: Object,
@@ -54,8 +47,8 @@ const userSchema = new Schema(
         },
         gender:{
             type: String,
-            enum: ["male", "female", "other"],
-            default: "Not Selected",
+            enum: ["Male", "Female", "Not selected"],
+            required: false,
         },
         dob:{
             type:String,

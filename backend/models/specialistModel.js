@@ -7,6 +7,13 @@ const validationPatterns = {
     email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, // Basic email format
 }
 
+// Nested schema for the address
+const addressSchema = new Schema({
+    city: { type: String, default: '' },
+    street: { type: String, default: '' },
+    building: { type: String, default: '' }
+})
+
 // specialistSchema
 const specialistSchema = new Schema(
     {
@@ -34,21 +41,25 @@ const specialistSchema = new Schema(
         },
         image: {
             type: String,
+            default: "Upload image",
             required: [true, "Image is required"],
         },
         speciality: {
             type: String,
+            default: "Speciality",
             required: [true, "Speciality is required"],
             trim: true,
         },
         rating: {
             type: Number,
+            default: 0.0,
             required: [true, "Rating is required"],
             min: [0, "Fees must be a positive value"],
             max: [5, "Fees must be a positive value"]
         },
         experience: {
             type: String,
+            default: "About me",
             required: [true, "Experience is required"],
             trim: true,
         },
@@ -59,20 +70,19 @@ const specialistSchema = new Schema(
         },
         fees: {
             type: Number,
+            default: 0,
             required: [true, "Fees is required"],
             min: [0, "Fees must be a positive value"],
         },
         address: {
-            type: Object,
-            default: {
-                city: { type: String, default: '' },
-                street: { type: String, default: '' },
-                building: { type: String, default: '' },
-            }
+            type: addressSchema,
+            default: () => ({}),
+            required: [true, "Address is required"],
         },
         date: {
             type: Number,
-            required: [true, "Date is required"],
+            // If i need a default meaning and do i need to make it required
+    
         },
         slots_booked: {
             type: Object,
