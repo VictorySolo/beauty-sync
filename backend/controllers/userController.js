@@ -1,23 +1,23 @@
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
+require('dotenv').config();
 const validator = require('validator');
 const User = require("../models/userModel.js");
 const Specialist = require("../models/specialistModel.js");
 const Appointment = require("../models/appointmentModel.js");
-const { v2 : cloudinary } = require('cloudinary')
+const { v2: cloudinary } = require('cloudinary')
 
 
 const salt_rounds = process.env.SALT_ROUNDS
 const secret_key = process.env.SECRET_KEY
+
 // API to register user
 const registerUser = async (req, res) => {
 
     try {
-       
-        const { name, email, password } = req.body;
-        console.log("Request Body:", req.body);
 
-        console.log("Request Headers:", req.headers);
+        const { name, email, password } = req.body;
+
         // checking for all data to register user
         if (!name || !email || !password) {
             return res.json({ success: false, message: 'Missing Details' })
@@ -44,6 +44,12 @@ const registerUser = async (req, res) => {
 
         const newUser = new User(userData)
         const user = await newUser.save()
+
+        // Ensure secret_key is valid
+        const secret_key = process.env.SECRET_KEY;
+        if (!secret_key) {
+            return res.json({ success: false, message: "Secret key is not defined" });
+        }
 
         const token = jwt.sign({ id: user._id }, secret_key)
         res.json({ success: true, token })
@@ -81,7 +87,7 @@ const updateUserProfile = async (req, res) => {
         }
 
         await User.findByIdAndUpdate(userId, { name, phone, address: JSON.parse(address), dob, gender })
-        
+
 
         if (imageFile) {
 
@@ -89,7 +95,7 @@ const updateUserProfile = async (req, res) => {
             const imageUpload = await cloudinary.uploader.upload(imageFile.path, { resource_type: "image" })
             const imageURL = imageUpload.secure_url
 
-            await userModel.findByIdAndUpdate(userId, { image: imageURL })
+            await User.findByIdAndUpdate(userId, { image: imageURL })
         }
 
         res.json({ success: true, message: 'Profile Updated' })
@@ -105,8 +111,8 @@ const bookAppointment = async (req, res) => {
 
     try {
 
-        const { userId, specialistId, slotDate, slotTime } = req.body
-        const specData = await Specialist.findById(specialistId).select("-password")
+        const { userId, specId, slotDate, slotTime } = req.body
+        const specData = await Specialist.findById(specId).select("-password")
 
         if (!specData || !specData.available) {
             return res.status(404).json({ success: false, message: 'Specialist Not Available' })
@@ -130,10 +136,10 @@ const bookAppointment = async (req, res) => {
         const userData = await User.findById(userId).select("-password")
 
         delete specData.slots_booked
-        
+
         const appointmentData = {
             userId,
-            specialistId,
+            specId,
             userData,
             specData,
             amount: specData.fees,
@@ -146,7 +152,7 @@ const bookAppointment = async (req, res) => {
         await newAppointment.save()
 
         // save new slots data in docData
-        await Specialist.findByIdAndUpdate(specialistId, { slots_booked })
+        await Specialist.findByIdAndUpdate(specId, { slots_booked })
 
         res.status(201).json({ success: true, message: 'Appointment Booked' })
 
@@ -172,15 +178,15 @@ const cancelAppointment = async (req, res) => {
         await Appointment.findByIdAndUpdate(appointmentId, { cancelled: true })
 
         // releasing specialist slot 
-        const { specialistId, slotDate, slotTime } = appointmentData
+        const { specId, slotDate, slotTime } = appointmentData
 
-        const specData = await Specialist.findById(specialistId)
+        const specData = await Specialist.findById(specId)
         if (specData && specData.slots_booked[slotDate]) {
             let slots_booked = specData.slots_booked
 
             slots_booked[slotDate] = slots_booked[slotDate].filter(e => e !== slotTime)
 
-            await Specialist.findByIdAndUpdate(specialistId, { slots_booked })
+            await Specialist.findByIdAndUpdate(specId, { slots_booked })
         }
 
         res.json({ success: true, message: 'Appointment Cancelled' })
