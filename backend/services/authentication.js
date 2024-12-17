@@ -1,3 +1,4 @@
+require("dotenv").config()
 //  import modules
 const jwt = require("jsonwebtoken")
 //  adding bcrypt for password hashing
@@ -9,51 +10,66 @@ const Specialist = require("../models/specialistModel")
 const User = require("../models/userModel")
 
 
-//  dotenv for environment variables import
-require("dotenv").config()
-
-//  setting secret key from .env
-const secretKey = process.env.SECRET_KEY
+const secret_key = process.env.SECRET_KEY
 
 const admin_email = process.env.ADMIN_EMAIL
 const admin_password = process.env.ADMIN_PASSWORD
-const secret_key = process.env.SECRET_KEY
+
 //  login function
 const login = async (req, res, next) => {
   try {
     const { email, password } = req.body
-
-    //  admin login verification
-    if (email === admin_email && password === admin_password) {
-      return handleAdminLogin(res)
-    }
 
     //  check for required parameters
     if (!email || !password) {
       return next(new HttpError("Email and password are required", 400))
     }
 
-    //  find user by email
-    const user = await User.findOne({ email }) || await Specialist.findOne({ email })
-    if (!user) {
-      return next(new HttpError("User not found", 404))
-    }
+    let userRole = null;
+    let user = null;
 
-    //  verify password
-    const isPasswordValid = await bcrypt.compare(password, user.password)
-    if (!isPasswordValid) {
-      return next(new HttpError("Invalid credentials", 401))
+    //  admin login verification
+    if (email === admin_email && password === admin_password) {
+      userRole = "admin";
+      user = { _id: "admin", email: admin_email, role: userRole };
+    } else {
+    // User or Specialist login verification
+     user = await User.findOne({ email }) || await Specialist.findOne({ email })
+     if (!user) {
+       return next(new HttpError("User not found", 404))
+     }
+
+     //  verify password
+     const isPasswordValid = await bcrypt.compare(password, user.password)
+     if (!isPasswordValid) {
+       return next(new HttpError("Invalid credentials", 401))
+     }
+
+     // Determine user type
+     userRole = user instanceof User ? "user" : "specialist";
+    }
+    
+    if (!secret_key) {
+      console.error("Secret key not defined!");
+      return res.status(500).json({ message: "Internal Server Error: No Secret Key" });
     }
     //  store user ID in session
     req.session.userId = user._id
 
+    // Create a JWT token with user information
+    const payload = userRole === "admin" 
+      ? { role: "admin" }
+      : { _id: user._id, role: userRole };
+
     //  create JWT token
-    const token = jwt.sign(
-      { _id: user._id },
-      secretKey)
+    const token = jwt.sign(payload, secret_key, { expiresIn: "7d" })
     // send response with token
-    res.cookie("authToken", token, { httpOnly: true })
-    res.status(200).json({ message: "Logged in successfully" })
+    res.cookie("authToken", token, { httpOnly: true, secure: true, sameSite: "strict" })
+    res.status(200).json({ 
+      message: "Logged in successfully",
+      role: userRole,
+      token,
+     })
   } catch (err) {
     console.log("Error during login", err)
     next(err)
@@ -63,58 +79,49 @@ const login = async (req, res, next) => {
 //  Middleware:
 // check if user is logged in
 const isLoggedIn = (req, res, next) => {
-  if (req.session.userId) {
-    return res.status(200).json({ loggedIn: true })
-  } else {
+  const token = req.cookies.authToken
+  if (!token){
     return next(new HttpError("Unauthorized: Please log in", 401))
-  }
+  } 
+  try{
+    const decoded = jwt.verify(token, secret_key)
+    req.user = decoded
+    next()
+  } catch(err){
+    console.log("Token verification error:", err)
+    next(new HttpError("Unauthorized: Invalid or expired token", 401))
+  }   
 }
+
+// Check if user is admin
+const isAdmin = (req, res, next) => {
+  if (req.user?.role !== "admin") {
+    return next(new HttpError("Forbidden: You do not have the required permissions", 403));
+  }
+  next();
+};
 
 //  Decode JWT token
 const decodeToken = async (req, res, next) => {
-  try {
-    //  getting the token from the user's cookies
     const token = req.cookies.authToken
 
     if (!token) {
       return next(new HttpError("No token provided", 401))
     }
-
-    const decoded = jwt.verify(token, secretKey)
-    if (token_decode !== admin_email + admin_password) {
-      return res.json({ success: false, message: 'Not Authorized Login Again' })
-    } else if (User) {
-      req.session.userId = decoded._id;
-    } else if (Specialist) {
-      req.specialistId = decoded._id;
-    }
-
-
-    next()
-  } catch (err) {
-    console.error("Token decoding error:", err);
-    next(new HttpError("Unauthorized: Invalid or expired token", 401))
-  }
+    try{
+      const decoded = jwt.verify(token, secret_key)
+      if(decoded.role === "admin"){
+        req.isAdmin = true
+      } else{
+        req.userId = decoded._id
+        req.userRole = decoded.role
+      }
+      next()
+    } catch (err){
+      console.error("Token decoding error:", err)
+      next(new HttpError("Unauthorized: Invalid or expired token", 401))     
+    } 
 }
-
-// -- isAdmin middleware
-const isAdmin = async (req, res, next) => {
-  try {
-    const user = await User.findById(req.session.userId);
-    if (!user) {
-      return res.status(401).json({ message: "Unauthorized: Please log in" });
-    }
-    if (!user.isAdmin) {
-      return res.status(403).json({
-        message: "Forbidden: You do not have the required permissions",
-      });
-    }
-    next();
-  } catch (err) {
-    console.error("Admin check error:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-};
 
 //  logout function
 const logout = (req, res, next) => {
@@ -130,10 +137,6 @@ const logout = (req, res, next) => {
   })
 }
 
-const handleAdminLogin = (res) => {
-  const token = jwt.sign(email + password, secret_key)
-  res.json({ success: true, token })
-}
 //  exporting functions
 module.exports = {
   login,
