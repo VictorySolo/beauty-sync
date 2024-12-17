@@ -1,14 +1,20 @@
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
+require('dotenv').config();
+const validator = require('validator');
 const Specialist = require("../models/specialistModel")
 const Appointment = require("../models/appointmentModel")
+const { v2: cloudinary } = require("cloudinary");
 
+
+const salt_rounds = process.env.SALT_ROUNDS
 const secret_key = process.env.SECRET_KEY
+
 // API to register user
 const registerSpecialist = async (req, res) => {
 
     try {
-       
+
         const { name, email, password } = req.body;
 
         // checking for all data to register account
@@ -35,8 +41,14 @@ const registerSpecialist = async (req, res) => {
             password: hashedPassword,
         }
 
-        const newSpec = new User(specialistData)
+        const newSpec = new Specialist(specialistData)
         const specialist = await newSpec.save()
+
+         // Ensure secret_key is valid
+         const secret_key = process.env.SECRET_KEY;
+         if (!secret_key) {
+             return res.json({ success: false, message: "Secret key is not defined" });
+         }
 
         const token = jwt.sign({ id: specialist._id }, secret_key)
         res.json({ success: true, token })
@@ -46,13 +58,65 @@ const registerSpecialist = async (req, res) => {
         res.json({ success: false, message: error.message })
     }
 }
+// Get Specialist Profile
+const getSpecialistProfile = async (req, res) => {
+    try {
+        const { specId } = req.body;
+        const specData = await Specialist.findById(specId).select(
+            "-password"
+        );
+
+        res.json({ success: true, specData });
+    } catch (error) {
+        console.error(error);
+        res.json({ success: false, message: error.message });
+    }
+};
+
+//  update specialist profile data from  specialist Panel
+const updateSpecProfile = async (req, res) => {
+    try {
+
+        const { specId, name, phone, address, experience, fees, available } = req.body
+
+        if (!name || !phone || !address || !experience || !fees || available) {
+            return res.json({ success: false, message: "Missing Details" });
+        }
+
+        await Specialist.findByIdAndUpdate(specId,
+            {
+                name,
+                phone,
+                address,
+                experience,
+                fees,
+                available
+            })
+
+        if (imageFile) {
+
+            // upload image to cloudinary
+            const imageUpload = await cloudinary.uploader.upload(imageFile.path, { resource_type: "image" })
+            const imageURL = imageUpload.secure_url
+
+            await Specialist.findByIdAndUpdate(specId, { image: imageURL })
+        }
+
+        res.json({ success: true, message: 'Profile Updated' })
+
+    } catch (error) {
+        console.log(error)
+        res.json({ success: false, message: error.message })
+    }
+}
+
 
 //  get specialist appointments for personal panel
 const appointmentsToSpec = async (req, res) => {
     try {
 
-        const { specialistId } = req.body
-        const appointments = await Appointment.find({ specialistId })
+        const { specId } = req.body
+        const appointments = await Appointment.find({ specId })
 
         res.json({ success: true, appointments })
 
@@ -67,10 +131,10 @@ const appointmentsToSpec = async (req, res) => {
 const appointmentCancel = async (req, res) => {
     try {
 
-        const { specialistId, appointmentId } = req.body
+        const { specId, appointmentId } = req.body
 
         const appointmentData = await Appointment.findById(appointmentId)
-        if (appointmentData && appointmentData.specialistId === specialistId) {
+        if (appointmentData && appointmentData.specId === specId) {
             await Appointment.findByIdAndUpdate(appointmentId, { cancelled: true })
             return res.json({ success: true, message: 'Appointment Cancelled' })
         }
@@ -88,10 +152,10 @@ const appointmentCancel = async (req, res) => {
 const appointmentComplete = async (req, res) => {
     try {
 
-        const { specialistId, appointmentId } = req.body
+        const { specId, appointmentId } = req.body
 
         const appointmentData = await Appointment.findById(appointmentId)
-        if (appointmentData && appointmentData.specialistId === specialistId) {
+        if (appointmentData && appointmentData.specId === specId) {
             await Appointment.findByIdAndUpdate(appointmentId, { isCompleted: true })
             return res.json({ success: true, message: 'Appointment Completed' })
         }
@@ -109,8 +173,13 @@ const appointmentComplete = async (req, res) => {
 const specialistList = async (req, res) => {
     try {
 
-        const specialist = await Specialist.find({}).select(['-password', '-email'])
-        res.json({ success: true, specialist })
+        const specialists = await Specialist.find({})
+
+        res.json({ 
+            success: true,
+            specialists: specialists.length > 0 ? specialists : [], 
+
+         })
 
     } catch (error) {
         console.log(error)
@@ -123,10 +192,10 @@ const specialistList = async (req, res) => {
 const changeAvailablity = async (req, res) => {
     try {
 
-        const { specialistId } = req.body
+        const { specId } = req.body
 
-        const specialistData = await Specialist.findById(specialistId)
-        await Specialist.findByIdAndUpdate(specialistId, { available: !specialistData.available })
+        const specialistData = await Specialist.findById(specId)
+        await Specialist.findByIdAndUpdate(specId, { available: !specialistData.available })
         res.json({ success: true, message: 'Availablity Changed' })
 
     } catch (error) {
@@ -135,44 +204,13 @@ const changeAvailablity = async (req, res) => {
     }
 }
 
-// get specialist profile for  specialist Panel
-const specialistProfile = async (req, res) => {
-    try {
-
-        const { specialistId } = req.body
-        const profileData = await Specialist.findById(specialistId).select('-password')
-
-        res.json({ success: true, profileData })
-
-    } catch (error) {
-        console.log(error)
-        res.json({ success: false, message: error.message })
-    }
-}
-
-//  update specialist profile data from  specialist Panel
-const updateSpecProfile = async (req, res) => {
-    try {
-
-        const { specialistId, fees, address, available } = req.body
-
-        await Specialist.findByIdAndUpdate(specialistId, { fees, address, available })
-
-        res.json({ success: true, message: 'Profile Updated' })
-
-    } catch (error) {
-        console.log(error)
-        res.json({ success: false, message: error.message })
-    }
-}
-
 //  get dashboard data for specialist panel
-const dashboard = async (req, res) => {
+const specialistDashboard = async (req, res) => {
     try {
 
-        const { specialistId } = req.body
+        const { specId } = req.body
 
-        const appointments = await Appointment.find({ specialistId })
+        const appointments = await Appointment.find({ specId })
 
         let earnings = 0
 
@@ -209,13 +247,13 @@ const dashboard = async (req, res) => {
 
 module.exports = {
     registerSpecialist,
+    getSpecialistProfile,
+    updateSpecProfile,
     appointmentsToSpec,
     appointmentCancel,
     specialistList,
     changeAvailablity,
     appointmentComplete,
-    dashboard,
-    specialistProfile,
-    updateSpecProfile
+    specialistDashboard,
 }
 
